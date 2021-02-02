@@ -30,6 +30,7 @@
 #include "common.h"
 #include "dhcpd.h"
 #include "dhcpc.h"
+#include "event.h"
 
 #include <netinet/if_ether.h>
 #include <linux/filter.h>
@@ -730,6 +731,8 @@ static NOINLINE int send_discover(uint32_t xid, uint32_t requested)
 	add_client_options(&packet);
 
 	bb_info_msg("sending %s", "discover");
+
+    print_event("discover");
 	return raw_bcast_from_client_data_ifindex(&packet, INADDR_ANY);
 }
 
@@ -774,6 +777,7 @@ static NOINLINE int send_select(uint32_t xid, uint32_t server, uint32_t requeste
 
 	temp_addr.s_addr = requested;
 	bb_info_msg("sending select for %s", inet_ntoa(temp_addr));
+    print_event("select");
 	return raw_bcast_from_client_data_ifindex(&packet, INADDR_ANY);
 }
 
@@ -815,6 +819,7 @@ static NOINLINE int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 
 	temp_addr.s_addr = server;
 	bb_info_msg("sending renew to %s", inet_ntoa(temp_addr));
+    print_event("renew");
 	return bcast_or_ucast(&packet, ciaddr, server);
 }
 
@@ -844,6 +849,7 @@ static NOINLINE int send_decline(/*uint32_t xid,*/ uint32_t server, uint32_t req
 	udhcp_add_simple_option(&packet, DHCP_SERVER_ID, server);
 
 	bb_info_msg("sending %s", "decline");
+    print_event("decline");
 	return raw_bcast_from_client_data_ifindex(&packet, INADDR_ANY);
 }
 #endif
@@ -870,6 +876,7 @@ int send_release(uint32_t server, uint32_t ciaddr)
 	 * However, there _are_ people who run "address-less" DHCP servers,
 	 * and reportedly ISC dhcp client and Windows allow that.
 	 */
+    print_event("release");
 	return bcast_or_ucast(&packet, ciaddr, server);
 }
 
@@ -1669,6 +1676,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			/* Must be a DHCPOFFER */
 			if (*message == DHCPOFFER) {
 				uint8_t *temp;
+                print_event("offer");
 
 /* What exactly is server's IP? There are several values.
  * Example DHCP offer captured with tchdump:
@@ -1721,6 +1729,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				uint32_t lease_seconds;
 				struct in_addr temp_addr;
 				uint8_t *temp;
+
+                print_event("ack");
 
 				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
@@ -1813,7 +1823,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				 * "wrong" server can reply first, with a NAK.
 				 * Do not interpret it as a NAK from "our" server.
 				 */
-				if (server_addr != 0) {
+                print_event("nak");
+			    if (server_addr != 0) {
 					uint32_t svid;
 					uint8_t *temp;
 
